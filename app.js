@@ -21,16 +21,21 @@ const bookingDialog = document.querySelector("#booking-dialog");
 const bookingForm = document.querySelector("#booking-form");
 const bookingMessage = document.querySelector("#booking-message");
 const menuToggle = document.querySelector("#menu-toggle");
+const menuToggleIcon = document.querySelector("#menu-toggle-icon");
 const mobileMenu = document.querySelector("#mobile-menu");
+const mobileMenuBackdrop = document.querySelector("#mobile-menu-backdrop");
+const mobileMenuPanel = document.querySelector("#mobile-menu-panel");
+const mobileMenuClose = document.querySelector("#mobile-menu-close");
 const toast = document.querySelector("#toast");
 const refreshIcons = () => window.lucide?.createIcons();
+const userGreeting = document.querySelector("#user-greeting");
+const userGreetingWrap = document.querySelector("#user-greeting-wrap");
 
 // Auth-aware nav / view elements
 const navGuestDesktop = document.querySelector("#nav-guest");
 const navAuthDesktop = document.querySelector("#nav-auth");
 const navGuestMobile = document.querySelector("#mobile-nav-guest");
 const navAuthMobile = document.querySelector("#mobile-nav-auth");
-const userGreeting = document.querySelector("#user-greeting");
 const marketingEls = document.querySelectorAll(".marketing-only");
 const dashboardView = document.querySelector("#dashboard-view");
 const dashboardGreeting = document.querySelector("#dashboard-greeting");
@@ -105,21 +110,45 @@ function makeDismissible(dialog) {
     });
 }
 
-// ---------- Mobile menu ----------
+// ---------- Mobile menu (slide-in drawer + backdrop) ----------
+
+function isMobileMenuOpen() {
+    return mobileMenuPanel.classList.contains("translate-x-0");
+}
+
+function openMobileMenu() {
+    mobileMenu.classList.remove("pointer-events-none");
+    mobileMenu.setAttribute("aria-hidden", "false");
+    mobileMenuBackdrop.classList.remove("opacity-0");
+    mobileMenuBackdrop.classList.add("opacity-100");
+    mobileMenuPanel.classList.remove("translate-x-full");
+    mobileMenuPanel.classList.add("translate-x-0");
+    menuToggle.setAttribute("aria-expanded", "true");
+    menuToggleIcon.setAttribute("data-lucide", "x");
+    document.body.classList.add("menu-open");
+    refreshIcons();
+}
 
 function closeMobileMenu() {
-    mobileMenu.classList.add("hidden");
+    mobileMenu.classList.add("pointer-events-none");
+    mobileMenu.setAttribute("aria-hidden", "true");
+    mobileMenuBackdrop.classList.add("opacity-0");
+    mobileMenuBackdrop.classList.remove("opacity-100");
+    mobileMenuPanel.classList.add("translate-x-full");
+    mobileMenuPanel.classList.remove("translate-x-0");
     menuToggle.setAttribute("aria-expanded", "false");
+    menuToggleIcon.setAttribute("data-lucide", "menu");
+    document.body.classList.remove("menu-open");
+    refreshIcons();
 }
 
 menuToggle.addEventListener("click", () => {
-    const isOpen = !mobileMenu.classList.contains("hidden");
-    if (isOpen) {
-        closeMobileMenu();
-    } else {
-        mobileMenu.classList.remove("hidden");
-        menuToggle.setAttribute("aria-expanded", "true");
-    }
+    isMobileMenuOpen() ? closeMobileMenu() : openMobileMenu();
+});
+mobileMenuClose.addEventListener("click", closeMobileMenu);
+mobileMenuBackdrop.addEventListener("click", closeMobileMenu);
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isMobileMenuOpen()) closeMobileMenu();
 });
 mobileMenu.querySelectorAll(".mobile-link").forEach((link) => link.addEventListener("click", closeMobileMenu));
 
