@@ -25,15 +25,21 @@ const mobileMenu = document.querySelector("#mobile-menu");
 const toast = document.querySelector("#toast");
 const refreshIcons = () => window.lucide?.createIcons();
 
+// Auth-aware nav / view elements
+const navGuestDesktop = document.querySelector("#nav-guest");
+const navAuthDesktop = document.querySelector("#nav-auth");
+const navGuestMobile = document.querySelector("#mobile-nav-guest");
+const navAuthMobile = document.querySelector("#mobile-nav-auth");
+const userGreeting = document.querySelector("#user-greeting");
+const marketingEls = document.querySelectorAll(".marketing-only");
+const dashboardView = document.querySelector("#dashboard-view");
+const dashboardGreeting = document.querySelector("#dashboard-greeting");
+const bookingsGrid = document.querySelector("#bookings-grid");
+const ordersGrid = document.querySelector("#orders-grid");
+
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;" }[character]));
 const money = (value) => `\u20a6${Number(value || 0).toLocaleString("en-NG")}`;
 const imageOrEmoji = (image) => image ? `<img class="h-full w-full object-cover" src="${escapeHtml(image)}" alt="" loading="lazy">` : "";
-
-async function getJson(path) {
-    const response = await fetch(`${API_BASE}${path}`);
-    if (!response.ok) throw new Error("Could not load this right now.");
-    return response.json();
-}
 
 // ---------- Auth state ----------
 
@@ -42,7 +48,7 @@ function setSignedIn(user, token) {
     state.token = token;
     localStorage.setItem("fixitToken", token);
     localStorage.setItem("fixitUser", JSON.stringify(user));
-    authButton.textContent = `Hi, ${user.name.split(" ")[0]}`;
+    updateAuthUI();
 }
 
 function setSignedOut() {
@@ -52,7 +58,36 @@ function setSignedOut() {
     localStorage.removeItem("fixitUser");
     sessionStorage.removeItem("fixitToken");
     sessionStorage.removeItem("fixitUser");
-    authButton.textContent = "Sign in";
+    updateAuthUI();
+}
+
+// ---------- Switch between the logged-out marketing view and the logged-in dashboard ----------
+
+function updateAuthUI() {
+    const signedIn = Boolean(state.token && state.user);
+
+    // nav-guest / nav-auth both carry Tailwind's "hidden md:flex" responsive pattern.
+    // On desktop, "md:flex" always wins the cascade over a plain "hidden" class no
+    // matter when it's added, so toggling classList("hidden") can't actually hide
+    // either one on desktop. Inline style always overrides the cascade, so use that.
+    navGuestDesktop.style.display = signedIn ? "none" : "";
+    navAuthDesktop.style.display = signedIn ? "" : "none";
+    userGreeting.style.display = signedIn ? "inline" : "none";
+
+    navGuestMobile.classList.toggle("hidden", signedIn);
+    navAuthMobile.classList.toggle("hidden", !signedIn);
+
+    authButton.classList.toggle("hidden", signedIn);
+
+    marketingEls.forEach((el) => el.classList.toggle("hidden", signedIn));
+    dashboardView.classList.toggle("hidden", !signedIn);
+
+    if (signedIn) {
+        userGreeting.textContent = `Hi, ${state.user.name.split(" ")[0]}`;
+        dashboardGreeting.textContent = `Welcome back, ${state.user.name}`;
+        loadBookings();
+        loadOrders();
+    }
 }
 function requireAuth(promptMessage) {
     if (state.token) return true;
@@ -166,101 +201,33 @@ function renderServiceSkeletons(count = 6) {
     `).join("");
 }
 
+// Mock data for the Services grid — same set as before the backend was wired up.
+const mockServices = [
+    { name: "Deep House Cleaning", category: "Cleaning", description: "Full home deep clean including kitchen, bathrooms, and living areas.", image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=800", priceMin: 8000, priceMax: 20000, rating: 4.7 },
+    { name: "Electrical Wiring Inspection", category: "Electrical", description: "Safety inspection and minor repairs for home wiring.", image: "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?w=800", priceMin: 5000, priceMax: 15000, rating: 4.5 },
+    { name: "Pipe Leak Repair", category: "Plumbing", description: "Fix leaking pipes, taps, and joints around the home.", image: "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?w=800", priceMin: 3000, priceMax: 12000, rating: 4.6 },
+    { name: "Custom Furniture Repair", category: "Carpentry", description: "Repair or build custom wooden furniture and fittings.", image: "https://images.pexels.com/photos/6790042/pexels-photo-6790042.jpeg?w=800", priceMin: 6000, priceMax: 25000, rating: 4.3 },
+    { name: "Interior Wall Painting", category: "Painting", description: "Fresh coat of paint for interior walls, includes prep work.", image: "https://images.pexels.com/photos/7218029/pexels-photo-7218029.jpeg?w=800", priceMin: 10000, priceMax: 40000, rating: 4.8 },
+    { name: "General Home Maintenance", category: "Maintenance", description: "Routine checks and small fixes across the home.", image: "https://images.pexels.com/photos/5194769/pexels-photo-5194769.jpeg?w=800", priceMin: 4000, priceMax: 18000, rating: 4.4 },
+    { name: "AC Servicing & Repair", category: "Maintenance", description: "Cleaning, gas top-up, and repair for air conditioning units.", image: "https://images.pexels.com/photos/5194769/pexels-photo-5194769.jpeg?w=800", priceMin: 7000, priceMax: 22000, rating: 4.6 },
+    { name: "Bathroom Deep Clean", category: "Cleaning", description: "Intensive cleaning and descaling for bathrooms.", image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=800", priceMin: 4000, priceMax: 10000, rating: 4.5 },
+];
+
 function loadServices() {
     renderServiceSkeletons();
 
-    const services = [
-        {
-            name: "Deep House Cleaning",
-            category: "Cleaning",
-            description: "Full home deep clean including kitchen, bathrooms, and living areas.",
-            image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=800",
-            priceMin: 8000,
-            priceMax: 20000,
-            rating: 4.7
-        },
-        {
-            name: "Electrical Wiring Inspection",
-            category: "Electrical",
-            description: "Safety inspection and minor repairs for home wiring.",
-            image: "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?w=800",
-            priceMin: 5000,
-            priceMax: 15000,
-            rating: 4.5
-        },
-        {
-            name: "Pipe Leak Repair",
-            category: "Plumbing",
-            description: "Fix leaking pipes, taps, and joints around the home.",
-            image: "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?w=800",
-            priceMin: 3000,
-            priceMax: 12000,
-            rating: 4.6
-        },
-        {
-            name: "Custom Furniture Repair",
-            category: "Carpentry",
-            description: "Repair or build custom wooden furniture and fittings.",
-            image: "https://images.pexels.com/photos/6790042/pexels-photo-6790042.jpeg?w=800",
-            priceMin: 6000,
-            priceMax: 25000,
-            rating: 4.3
-        },
-        {
-            name: "Interior Wall Painting",
-            category: "Painting",
-            description: "Fresh coat of paint for interior walls, includes prep work.",
-            image: "https://images.pexels.com/photos/7218029/pexels-photo-7218029.jpeg?w=800",
-            priceMin: 10000,
-            priceMax: 40000,
-            rating: 4.8
-        },
-        {
-            name: "General Home Maintenance",
-            category: "Maintenance",
-            description: "Routine checks and small fixes across the home.",
-            image: "https://images.pexels.com/photos/5194769/pexels-photo-5194769.jpeg?w=800",
-            priceMin: 4000,
-            priceMax: 18000,
-            rating: 4.4
-        },
-        {
-            name: "AC Servicing & Repair",
-            category: "Maintenance",
-            description: "Cleaning, gas top-up, and repair for air conditioning units.",
-            image: "https://images.pexels.com/photos/5194769/pexels-photo-5194769.jpeg?w=800",
-            priceMin: 7000,
-            priceMax: 22000,
-            rating: 4.6
-        },
-        {
-            name: "Bathroom Deep Clean",
-            category: "Cleaning",
-            description: "Intensive cleaning and descaling for bathrooms.",
-            image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=800",
-            priceMin: 4000,
-            priceMax: 10000,
-            rating: 4.5
-        }
-    ];
-
     const searchTerm = state.search.toLowerCase().trim();
-
-    const filteredServices = services.filter((service) => {
-        const matchesCategory =
-            state.category === "All" ||
-            service.category === state.category;
-
+    const filtered = mockServices.filter((service) => {
+        const matchesCategory = state.category === "All" || service.category === state.category;
         const matchesSearch =
             !searchTerm ||
             service.name.toLowerCase().includes(searchTerm) ||
             service.category.toLowerCase().includes(searchTerm) ||
             service.description.toLowerCase().includes(searchTerm);
-
         return matchesCategory && matchesSearch;
     });
 
-    renderServices(filteredServices);
+    renderServices(filtered);
 }
 function renderProducts(products) {
     if (!products.length) {
@@ -272,21 +239,21 @@ function renderProducts(products) {
     refreshIcons();
 }
 
+// Mock data for the Products grid — same set as before the backend was wired up.
+const mockProducts = [
+    { name: "Multi-Surface Cleaner (1L)", category: "Cleaning", description: "All-purpose cleaner safe for most household surfaces.", image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=600", price: 2500 },
+    { name: "LED Bulb Pack (4pcs)", category: "Electrical", description: "Energy-saving LED bulbs, cool white, 9W each.", image: "https://images.pexels.com/photos/5840158/pexels-photo-5840158.jpeg?cs=tinysrgb&w=600", price: 4000 },
+    { name: "PVC Pipe Fitting Kit", category: "Plumbing", description: "Assorted fittings for common household plumbing repairs.", image: "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?w=600", price: 6500 },
+    { name: "Wood Varnish (500ml)", category: "Carpentry", description: "Protective varnish finish for wooden furniture.", image: "https://images.pexels.com/photos/6790042/pexels-photo-6790042.jpeg?w=600", price: 3200 },
+    { name: "Interior Paint (4L, White)", category: "Painting", description: "Matte finish interior wall paint, washable.", image: "https://images.pexels.com/photos/7218029/pexels-photo-7218029.jpeg?w=600", price: 18000 },
+    { name: "Tool Kit (32-piece)", category: "Maintenance", description: "General home repair tool kit with case.", image: "https://images.pexels.com/photos/5194769/pexels-photo-5194769.jpeg?w=600", price: 15000 },
+    { name: "Extension Cable (5m)", category: "Electrical", description: "Heavy-duty extension cable with surge protection.", image: "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?w=600", price: 5000 },
+    { name: "Drain Unblocker (750ml)", category: "Plumbing", description: "Fast-acting liquid drain unblocker.", image: "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?w=600", price: 2800 },
+];
+
 function loadProducts() {
-    const products = [
-        { name: "Multi-Surface Cleaner (1L)", category: "Cleaning", description: "All-purpose cleaner safe for most household surfaces.", image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=600", price: 2500 },
-       { name: "LED Bulb Pack (4pcs)", category: "Electrical", description: "Energy-saving LED bulbs, cool white, 9W each.", image: "https://images.pexels.com/photos/5840158/pexels-photo-5840158.jpeg?cs=tinysrgb&w=600", price: 4000 },
-        { name: "PVC Pipe Fitting Kit", category: "Plumbing", description: "Assorted fittings for common household plumbing repairs.", image: "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?w=600", price: 6500 },
-        { name: "Wood Varnish (500ml)", category: "Carpentry", description: "Protective varnish finish for wooden furniture.", image: "https://images.pexels.com/photos/6790042/pexels-photo-6790042.jpeg?w=600", price: 3200 },
-        { name: "Interior Paint (4L, White)", category: "Painting", description: "Matte finish interior wall paint, washable.", image: "https://images.pexels.com/photos/7218029/pexels-photo-7218029.jpeg?w=600", price: 18000 },
-        { name: "Tool Kit (32-piece)", category: "Maintenance", description: "General home repair tool kit with case.", image: "https://images.pexels.com/photos/5194769/pexels-photo-5194769.jpeg?w=600", price: 15000 },
-        { name: "Extension Cable (5m)", category: "Electrical", description: "Heavy-duty extension cable with surge protection.", image: "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?w=600", price: 5000 },
-        { name: "Drain Unblocker (750ml)", category: "Plumbing", description: "Fast-acting liquid drain unblocker.", image: "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?w=600", price: 2800 },
-    ];
-
     const searchTerm = state.search.toLowerCase().trim();
-
-    const filteredProducts = products.filter((product) => {
+    const filtered = mockProducts.filter((product) => {
         const matchesCategory = state.category === "All" || product.category === state.category;
         const matchesSearch =
             !searchTerm ||
@@ -296,7 +263,55 @@ function loadProducts() {
         return matchesCategory && matchesSearch;
     });
 
-    renderProducts(filteredProducts);
+    renderProducts(filtered);
+}
+
+// ---------- Bookings / Orders (dashboard view, requires sign in) ----------
+
+function renderBookings(bookings) {
+    if (!bookings.length) {
+        bookingsGrid.innerHTML = '<p class="col-span-full text-sm text-gray-500">No bookings yet. Book a service to see it here.</p>';
+        return;
+    }
+    const statusStyles = { pending: "bg-yellow-50 text-yellow-700", confirmed: "bg-green-50 text-green-700", cancelled: "bg-red-50 text-red-700" };
+    bookingsGrid.innerHTML = bookings.map((booking) => {
+        const service = booking.service || {};
+        const date = booking.preferredDate ? new Date(booking.preferredDate).toLocaleDateString() : "No date set";
+        return `<article class="rounded-lg border p-5"><div class="flex items-start justify-between"><h3 class="font-bold text-gray-900">${escapeHtml(service.name || "Service")}</h3><span class="rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusStyles[booking.status] || "bg-gray-100 text-gray-700"}">${escapeHtml(booking.status)}</span></div><p class="mt-1 text-xs text-yellow-600">${escapeHtml(service.category || "")}</p><p class="mt-2 text-sm text-gray-500">${escapeHtml(date)}</p>${booking.notes ? `<p class="mt-1 text-sm text-gray-500">${escapeHtml(booking.notes)}</p>` : ""}</article>`;
+    }).join("");
+}
+
+function renderOrders(orders) {
+    if (!orders.length) {
+        ordersGrid.innerHTML = '<p class="col-span-full text-sm text-gray-500">No orders yet. Order a product to see it here.</p>';
+        return;
+    }
+    const statusStyles = { pending: "bg-yellow-50 text-yellow-700", confirmed: "bg-green-50 text-green-700", cancelled: "bg-red-50 text-red-700" };
+    ordersGrid.innerHTML = orders.map((order) => {
+        const product = order.product || {};
+        return `<article class="rounded-lg border bg-white p-4"><div class="flex items-start justify-between"><h3 class="text-sm font-semibold text-gray-900">${escapeHtml(product.name || "Product")}</h3><span class="rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusStyles[order.status] || "bg-gray-100 text-gray-700"}">${escapeHtml(order.status)}</span></div><p class="mt-1 text-xs text-yellow-600">${escapeHtml(product.category || "")}</p><p class="mt-2 text-sm text-gray-500">Qty: ${Number(order.quantity || 1)}</p></article>`;
+    }).join("");
+}
+
+// Mock data for the dashboard — shown as soon as you sign in, not pulled from Mongo.
+const mockBookings = [
+    { service: { name: "Deep House Cleaning", category: "Cleaning" }, status: "confirmed", preferredDate: "2026-09-28", notes: "Please bring eco-friendly products." },
+    { service: { name: "Electrical Wiring Inspection", category: "Electrical" }, status: "pending", preferredDate: "2026-10-03", notes: "" },
+    { service: { name: "Pipe Leak Repair", category: "Plumbing" }, status: "cancelled", preferredDate: "2026-09-20", notes: "Rescheduling for next month." },
+];
+
+const mockOrders = [
+    { product: { name: "LED Bulb Pack (4pcs)", category: "Electrical" }, status: "confirmed", quantity: 2 },
+    { product: { name: "PVC Pipe Fitting Kit", category: "Plumbing" }, status: "pending", quantity: 1 },
+    { product: { name: "Tool Kit (32-piece)", category: "Maintenance" }, status: "confirmed", quantity: 1 },
+];
+
+function loadBookings() {
+    renderBookings(mockBookings);
+}
+
+function loadOrders() {
+    renderOrders(mockOrders);
 }
 
 // ---------- Toast ----------
@@ -310,12 +325,19 @@ function showToast(message) {
 }
 
 authButton.addEventListener("click", () => {
-    if (state.token) {
-        setSignedOut();
-        showToast("Signed out.");
-        return;
-    }
     window.location.href = "login.html";
+});
+
+document.querySelector("#signout-desktop").addEventListener("click", () => {
+    setSignedOut();
+    showToast("Signed out.");
+    window.location.hash = "#top";
+});
+document.querySelector("#signout-mobile").addEventListener("click", () => {
+    setSignedOut();
+    showToast("Signed out.");
+    closeMobileMenu();
+    window.location.hash = "#top";
 });
 makeDismissible(bookingDialog);
 // ---------- Booking modal (requires sign in) ----------
@@ -356,6 +378,7 @@ bookingForm.addEventListener("submit", async (event) => {
         if (!response.ok) throw new Error(data.message || data.errors?.[0]?.message || "Could not send that booking.");
         bookingMessage.className = "mt-2 min-h-4 text-xs text-green-600";
         bookingMessage.textContent = "Booked! We'll be in touch to confirm.";
+        loadBookings();
         window.setTimeout(() => { bookingDialog.close(); showToast("Booking request sent."); }, 1100);
     } catch (error) {
         bookingMessage.className = "mt-2 min-h-4 text-xs text-red-600";
@@ -379,6 +402,7 @@ async function handleOrder(product, button) {
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || data.errors?.[0]?.message || "Could not place that order.");
         showToast(`Order placed for ${product.name}.`);
+        loadOrders();
     } catch (error) {
         showToast(error.message);
     } finally {
@@ -401,10 +425,8 @@ searchInput.addEventListener("input", () => {
 
 // ---------- Init ----------
 
-if (state.token && state.user) {
-    authButton.textContent = `Hi, ${state.user.name.split(" ")[0]}`;
-}
-renderServiceFilters()
+updateAuthUI();
+renderServiceFilters();
 loadServices();
 loadProducts();
 refreshIcons();
