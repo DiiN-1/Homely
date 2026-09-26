@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 const Service = require("../models/Service");
 const { protect } = require("../middleware/auth");
@@ -14,6 +15,10 @@ router.use(protect);
 router.post("/", validate(bookingSchema), async (req, res, next) => {
   try {
     const { serviceId, preferredDate, notes } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({ message: "Invalid service id — try refreshing the page." });
+    }
 
     const service = await Service.findById(serviceId);
     if (!service) {

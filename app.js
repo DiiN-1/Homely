@@ -242,6 +242,47 @@ const mockServices = [
     { name: "Bathroom Deep Clean", category: "Cleaning", description: "Intensive cleaning and descaling for bathrooms.", image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=800", priceMin: 4000, priceMax: 10000, rating: 4.5 },
 ];
 
+// The mock arrays below have no _id (they were never fetched from Mongo), so the
+// "Book Now" / "Order Now" buttons used to render data-id="undefined". That
+// literal string then got sent to the backend as serviceId/productId, and
+// Mongoose can't cast "undefined" to an ObjectId — hence the Cast error.
+//
+// Fix: keep the mock data for display (images, copy, etc.) exactly as-is, but
+// stamp each mock item with the REAL MongoDB _id of the matching seeded
+// document, matched by name. Run `npm run seed` in /backend once so those
+// documents exist, then this fetch-and-match runs on page load.
+let mockIdsReady = false;
+
+async function attachRealIdsToMockData() {
+    try {
+        const [servicesRes, productsRes] = await Promise.all([
+            fetch(`${API_BASE}/services`),
+            fetch(`${API_BASE}/products`),
+        ]);
+        const [realServices, realProducts] = await Promise.all([
+            servicesRes.json(),
+            productsRes.json(),
+        ]);
+
+        const serviceIdByName = new Map(realServices.map((s) => [s.name, s._id]));
+        const productIdByName = new Map(realProducts.map((p) => [p.name, p._id]));
+
+        mockServices.forEach((service) => {
+            if (serviceIdByName.has(service.name)) service._id = serviceIdByName.get(service.name);
+        });
+        mockProducts.forEach((product) => {
+            if (productIdByName.has(product.name)) product._id = productIdByName.get(product.name);
+        });
+    } catch (error) {
+        // Backend not running / not seeded yet — mock data still renders, it just
+        // won't have real ids until this succeeds, so booking/ordering will show
+        // the auth/toast flow but fail at the request stage instead of crashing.
+        console.warn("Could not sync mock data with backend ids:", error.message);
+    } finally {
+        mockIdsReady = true;
+    }
+}
+
 function loadServices() {
     renderServiceSkeletons();
 
@@ -373,6 +414,10 @@ makeDismissible(bookingDialog);
 
 function openBookingDialog(service) {
     if (!requireAuth("Sign in to book this service.")) return;
+    if (!service.id || service.id === "undefined") {
+        showToast("Still syncing with the server — wait a second and try again.");
+        return;
+    }
     activeBookingService = service.id;
     document.querySelector("#booking-service-name").textContent = service.name;
     document.querySelector("#booking-service-meta").innerHTML = `<span>${money(service.priceMin)} - ${money(service.priceMax)}</span><span class="flex items-center gap-1"><i data-lucide="star" class="h-3.5 w-3.5 fill-current text-yellow-500"></i>${Number(service.rating).toFixed(1)}</span>`;
@@ -391,8 +436,7 @@ bookingForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!activeBookingService) return;
     const formData = new FormData(bookingForm);
-    const payload = { serviceId: activeBookingService };
-    if (formData.get("date")) payload.preferredDate = formData.get("date");
+    const payload = { serviceId: activeBookingService, preferredDate: formData.get("date") };
     if (formData.get("notes")) payload.notes = formData.get("notes");
 
     bookingMessage.className = "mt-2 min-h-4 text-xs text-gray-500";
@@ -419,6 +463,10 @@ bookingForm.addEventListener("submit", async (event) => {
 
 async function handleOrder(product, button) {
     if (!requireAuth("Sign in to order this product.")) return;
+    if (!product.id || product.id === "undefined") {
+        showToast("Still syncing with the server — wait a second and try again.");
+        return;
+    }
     button.disabled = true;
     const originalLabel = button.textContent;
     button.textContent = "Ordering...";
@@ -459,3 +507,13 @@ renderServiceFilters();
 loadServices();
 loadProducts();
 refreshIcons();
+
+// Fetch real ids in the background, then re-render so the on-screen cards
+// pick up working data-id attributes without blocking the first paint.
+attachRealIdsToMockData().then(() => {
+    if (mockIdsReady) {
+        loadServices();
+        loadProducts();
+        refreshIcons();
+    }
+});

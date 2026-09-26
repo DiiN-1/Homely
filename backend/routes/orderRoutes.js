@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const { protect } = require("../middleware/auth");
@@ -14,6 +15,10 @@ router.use(protect);
 router.post("/", validate(orderSchema), async (req, res, next) => {
   try {
     const { productId, quantity } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ message: "Invalid product id — try refreshing the page." });
+    }
 
     const product = await Product.findById(productId);
     if (!product) {

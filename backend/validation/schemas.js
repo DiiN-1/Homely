@@ -13,7 +13,7 @@ const loginSchema = z.object({
 
 const bookingSchema = z.object({
   serviceId: z.string().min(1, "serviceId is required"),
-  preferredDate: z.coerce.date().optional(),
+  preferredDate: z.coerce.date({ required_error: "Preferred date is required" }),
   notes: z.string().trim().optional(),
 });
 
