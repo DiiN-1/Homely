@@ -15,7 +15,8 @@ function errorHandler(err, req, res, next) {
     return res.status(400).json({ message: err.message });
   }
 
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  // Errors can carry their own status (e.g. Paystack failures are 502)
+  const statusCode = err.status || err.statusCode || (res.statusCode === 200 ? 500 : res.statusCode);
   res.status(statusCode).json({
     message: err.message || "Server error",
   });

@@ -10,6 +10,9 @@ const serviceRoutes = require("./routes/serviceRoutes");
 const productRoutes = require("./routes/productRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const { paystackWebhook } = require("./routes/paymentRoutes");
+const { BOOKING_FEE, DELIVERY } = require("./config/pricing");
 
 const app = express();
 
@@ -31,6 +34,11 @@ app.use(
     },
   })
 );
+
+// Paystack webhook needs the RAW body to verify its signature, so it is
+// registered before express.json() and before the rate limiter.
+app.post("/api/payments/webhook", express.raw({ type: "*/*" }), paystackWebhook);
+
 app.use(express.json());
 
 // General rate limit across the whole API
@@ -44,6 +52,12 @@ app.use("/api/services", serviceRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/admin", adminRoutes);
+
+// Public pricing rules so the frontend can show fees (the server still recalculates everything)
+app.get("/api/config", (req, res) =>
+  res.json({ bookingFee: BOOKING_FEE, delivery: DELIVERY })
+);
 
 // 404 
 app.use(notFound);
