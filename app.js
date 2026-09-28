@@ -77,7 +77,7 @@ function updateAuthUI() {
     // either one on desktop. Inline style always overrides the cascade, so use that.
     navGuestDesktop.style.display = signedIn ? "none" : "";
     navAuthDesktop.style.display = signedIn ? "" : "none";
-    userGreeting.style.display = signedIn ? "inline" : "none";
+    userGreetingWrap.style.display = signedIn ? "flex" : "none";
 
     navGuestMobile.classList.toggle("hidden", signedIn);
     navAuthMobile.classList.toggle("hidden", !signedIn);
@@ -201,7 +201,7 @@ function renderServices(services) {
         return;
     }
     const icons = { Cleaning: "sparkles", Electrical: "zap", Plumbing: "droplets", Carpentry: "hammer", Painting: "paint-roller", Maintenance: "wrench" };
-    serviceGrid.innerHTML = services.map((service) => `<article class="flex flex-col justify-between rounded-lg border p-5"><div><div class="mb-3 flex h-32 items-center justify-center rounded-md bg-gray-100 text-gray-400">${service.image ? imageOrEmoji(service.image) : `<i data-lucide="${icons[service.category] || "home"}" class="h-8 w-8"></i>`}</div><span class="text-xs font-medium text-yellow-600">${escapeHtml(service.category)}</span><h3 class="mt-1 font-bold text-gray-900">${escapeHtml(service.name)}</h3><p class="mt-1 text-sm text-gray-500">${escapeHtml(service.description)}</p></div><div class="mt-4"><div class="mb-3 flex items-center justify-between text-sm"><span class="font-bold text-gray-900">${money(service.priceMin)} - ${money(service.priceMax)}</span><span class="flex items-center gap-1 text-gray-600"><i data-lucide="star" class="h-3.5 w-3.5 fill-current text-yellow-500"></i>${Number(service.rating || 0).toFixed(1)}</span></div><button class="book-now-btn w-full rounded-md bg-yellow-600 py-2 text-sm font-medium text-white hover:bg-yellow-700" type="button" data-id="${service._id}" data-name="${escapeHtml(service.name)}" data-price-min="${service.priceMin}" data-price-max="${service.priceMax}" data-rating="${service.rating || 0}" data-description="${escapeHtml(service.description)}">Book Now</button></div></article>`).join("");
+    serviceGrid.innerHTML = services.map((service) => `<article class="flex flex-col justify-between rounded-lg border p-5"><div><div class="mb-3 flex h-32 items-center justify-center rounded-md bg-gray-100 text-gray-400">${service.image ? imageOrEmoji(service.image) : `<i data-lucide="${icons[service.category] || "home"}" class="h-8 w-8"></i>`}</div><span class="text-xs font-medium text-yellow-600">${escapeHtml(service.category)}</span><h3 class="mt-1 font-bold text-gray-900">${escapeHtml(service.name)}</h3><p class="mt-1 text-sm text-gray-500">${escapeHtml(service.description)}</p></div><div class="mt-4"><div class="mb-3 flex items-center justify-between text-sm"><span class="font-bold text-gray-900">${money(service.priceMin)} - ${money(service.priceMax)}</span><span class="flex items-center gap-1 text-gray-600"><i data-lucide="star" class="h-3.5 w-3.5 fill-current text-yellow-500"></i>${Number(service.rating || 0).toFixed(1)}</span></div><button class="book-now-btn w-full rounded-md bg-yellow-600 py-2 text-sm font-medium text-white hover:bg-yellow-700" type="button" data-id="${service._id || ""}" data-name="${escapeHtml(service.name)}" data-price-min="${service.priceMin}" data-price-max="${service.priceMax}" data-rating="${service.rating || 0}" data-description="${escapeHtml(service.description)}">Book Now</button></div></article>`).join("");
     serviceGrid.querySelectorAll(".book-now-btn").forEach((button) => button.addEventListener("click", () => openBookingDialog(button.dataset)));
     refreshIcons();
 }
@@ -242,15 +242,9 @@ const mockServices = [
     { name: "Bathroom Deep Clean", category: "Cleaning", description: "Intensive cleaning and descaling for bathrooms.", image: "https://images.pexels.com/photos/7814798/pexels-photo-7814798.jpeg?w=800", priceMin: 4000, priceMax: 10000, rating: 4.5 },
 ];
 
-// The mock arrays below have no _id (they were never fetched from Mongo), so the
-// "Book Now" / "Order Now" buttons used to render data-id="undefined". That
-// literal string then got sent to the backend as serviceId/productId, and
-// Mongoose can't cast "undefined" to an ObjectId — hence the Cast error.
-//
-// Fix: keep the mock data for display (images, copy, etc.) exactly as-is, but
-// stamp each mock item with the REAL MongoDB _id of the matching seeded
-// document, matched by name. Run `npm run seed` in /backend once so those
-// documents exist, then this fetch-and-match runs on page load.
+// The mock arrays have no _id (they were never fetched from Mongo), so we stamp
+// each mock item with the REAL MongoDB _id of the matching seeded document,
+// matched by exact name. Run `npm run seed` in /backend so those documents exist.
 let mockIdsReady = false;
 
 async function attachRealIdsToMockData() {
@@ -274,12 +268,28 @@ async function attachRealIdsToMockData() {
             if (productIdByName.has(product.name)) product._id = productIdByName.get(product.name);
         });
     } catch (error) {
-        // Backend not running / not seeded yet — mock data still renders, it just
-        // won't have real ids until this succeeds, so booking/ordering will show
-        // the auth/toast flow but fail at the request stage instead of crashing.
+        // Backend not running / not seeded yet — mock data still renders.
         console.warn("Could not sync mock data with backend ids:", error.message);
     } finally {
         mockIdsReady = true;
+    }
+}
+
+const OBJECT_ID_RE = /^[a-f\d]{24}$/i;
+
+// Last line of defence: if a card still has no real id when it's clicked
+// (backend was slow, page loaded before the seed ran, etc.), look it up by
+// name right now instead of sending "undefined" to the API.
+async function resolveRealId(kind, item) {
+    if (OBJECT_ID_RE.test(item.id || "")) return item.id;
+    try {
+        const response = await fetch(`${API_BASE}/${kind}`);
+        const list = await response.json();
+        if (!Array.isArray(list)) return null;
+        const match = list.find((entry) => entry.name === item.name);
+        return match && OBJECT_ID_RE.test(match._id) ? match._id : null;
+    } catch {
+        return null;
     }
 }
 
@@ -304,7 +314,7 @@ function renderProducts(products) {
         productGrid.innerHTML = '<p class="col-span-full text-sm text-gray-500">No products matched your search.</p>';
         return;
     }
-    productGrid.innerHTML = products.map((product) => `<article class="flex flex-col rounded-lg border bg-white p-4"><div class="mb-3 flex h-28 items-center justify-center rounded-md bg-gray-100 text-gray-400">${product.image ? imageOrEmoji(product.image) : '<i data-lucide="package" class="h-8 w-8"></i>'}</div><span class="text-xs font-medium text-yellow-600">${escapeHtml(product.category)}</span><h3 class="mt-1 text-sm font-semibold text-gray-900">${escapeHtml(product.name)}</h3><p class="mt-1 text-xs text-gray-500">${escapeHtml(product.description)}</p><div class="mt-auto flex items-center justify-between pt-3"><span class="text-sm font-medium text-gray-900">${money(product.price)}</span><button class="order-now-btn rounded-full bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-700" type="button" data-id="${product._id}" data-name="${escapeHtml(product.name)}">Order Now</button></div></article>`).join("");
+    productGrid.innerHTML = products.map((product) => `<article class="flex flex-col rounded-lg border bg-white p-4"><div class="mb-3 flex h-28 items-center justify-center rounded-md bg-gray-100 text-gray-400">${product.image ? imageOrEmoji(product.image) : '<i data-lucide="package" class="h-8 w-8"></i>'}</div><span class="text-xs font-medium text-yellow-600">${escapeHtml(product.category)}</span><h3 class="mt-1 text-sm font-semibold text-gray-900">${escapeHtml(product.name)}</h3><p class="mt-1 text-xs text-gray-500">${escapeHtml(product.description)}</p><div class="mt-auto flex items-center justify-between pt-3"><span class="text-sm font-medium text-gray-900">${money(product.price)}</span><button class="order-now-btn rounded-full bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-700" type="button" data-id="${product._id || ""}" data-name="${escapeHtml(product.name)}">Order Now</button></div></article>`).join("");
     productGrid.querySelectorAll(".order-now-btn").forEach((button) => button.addEventListener("click", () => handleOrder(button.dataset, button)));
     refreshIcons();
 }
@@ -346,7 +356,7 @@ function renderBookings(bookings) {
     const statusStyles = { pending: "bg-yellow-50 text-yellow-700", confirmed: "bg-green-50 text-green-700", cancelled: "bg-red-50 text-red-700" };
     bookingsGrid.innerHTML = bookings.map((booking) => {
         const service = booking.service || {};
-        const date = booking.preferredDate ? new Date(booking.preferredDate).toLocaleDateString() : "No date set";
+        const date = booking.preferredDate ? new Date(booking.preferredDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "No date set";
         return `<article class="rounded-lg border p-5"><div class="flex items-start justify-between"><h3 class="font-bold text-gray-900">${escapeHtml(service.name || "Service")}</h3><span class="rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusStyles[booking.status] || "bg-gray-100 text-gray-700"}">${escapeHtml(booking.status)}</span></div><p class="mt-1 text-xs text-yellow-600">${escapeHtml(service.category || "")}</p><p class="mt-2 text-sm text-gray-500">${escapeHtml(date)}</p>${booking.notes ? `<p class="mt-1 text-sm text-gray-500">${escapeHtml(booking.notes)}</p>` : ""}</article>`;
     }).join("");
 }
@@ -363,7 +373,15 @@ function renderOrders(orders) {
     }).join("");
 }
 
-// Mock data for the dashboard — shown as soon as you sign in, not pulled from Mongo.
+async function fetchMine(path) {
+    const response = await fetch(`${API_BASE}/${path}`, { headers: { Authorization: `Bearer ${state.token}` } });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Could not load your data.");
+    return data;
+}
+
+// Sample data that always shows in the dashboard. Real bookings/orders from
+// the backend are shown first (newest on top), the samples sit underneath.
 const mockBookings = [
     { service: { name: "Deep House Cleaning", category: "Cleaning" }, status: "confirmed", preferredDate: "2026-09-28", notes: "Please bring eco-friendly products." },
     { service: { name: "Electrical Wiring Inspection", category: "Electrical" }, status: "pending", preferredDate: "2026-10-03", notes: "" },
@@ -376,12 +394,24 @@ const mockOrders = [
     { product: { name: "Tool Kit (32-piece)", category: "Maintenance" }, status: "confirmed", quantity: 1 },
 ];
 
-function loadBookings() {
-    renderBookings(mockBookings);
+async function loadBookings() {
+    let real = [];
+    try {
+        real = await fetchMine("bookings/mine");
+    } catch (error) {
+        console.warn("Could not load saved bookings:", error.message);
+    }
+    renderBookings([...real, ...mockBookings]);
 }
 
-function loadOrders() {
-    renderOrders(mockOrders);
+async function loadOrders() {
+    let real = [];
+    try {
+        real = await fetchMine("orders/mine");
+    } catch (error) {
+        console.warn("Could not load saved orders:", error.message);
+    }
+    renderOrders([...real, ...mockOrders]);
 }
 
 // ---------- Toast ----------
@@ -410,15 +440,17 @@ document.querySelector("#signout-mobile").addEventListener("click", () => {
     window.location.hash = "#top";
 });
 makeDismissible(bookingDialog);
+
 // ---------- Booking modal (requires sign in) ----------
 
-function openBookingDialog(service) {
+async function openBookingDialog(service) {
     if (!requireAuth("Sign in to book this service.")) return;
-    if (!service.id || service.id === "undefined") {
-        showToast("Still syncing with the server — wait a second and try again.");
+    const realId = await resolveRealId("services", service);
+    if (!realId) {
+        showToast("This service isn't in the database yet. Run `npm run seed` in /backend, then refresh.");
         return;
     }
-    activeBookingService = service.id;
+    activeBookingService = realId;
     document.querySelector("#booking-service-name").textContent = service.name;
     document.querySelector("#booking-service-meta").innerHTML = `<span>${money(service.priceMin)} - ${money(service.priceMax)}</span><span class="flex items-center gap-1"><i data-lucide="star" class="h-3.5 w-3.5 fill-current text-yellow-500"></i>${Number(service.rating).toFixed(1)}</span>`;
     document.querySelector("#booking-service-description").textContent = service.description;
@@ -434,7 +466,11 @@ document.querySelector("#cancel-booking").addEventListener("click", () => bookin
 
 bookingForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!activeBookingService) return;
+    if (!OBJECT_ID_RE.test(activeBookingService || "")) {
+        bookingMessage.className = "mt-2 min-h-4 text-xs text-red-600";
+        bookingMessage.textContent = "Couldn't identify this service. Close this and try again.";
+        return;
+    }
     const formData = new FormData(bookingForm);
     const payload = { serviceId: activeBookingService, preferredDate: formData.get("date") };
     if (formData.get("notes")) payload.notes = formData.get("notes");
@@ -463,8 +499,9 @@ bookingForm.addEventListener("submit", async (event) => {
 
 async function handleOrder(product, button) {
     if (!requireAuth("Sign in to order this product.")) return;
-    if (!product.id || product.id === "undefined") {
-        showToast("Still syncing with the server — wait a second and try again.");
+    const realId = await resolveRealId("products", product);
+    if (!realId) {
+        showToast("This product isn't in the database yet. Run `npm run seed` in /backend, then refresh.");
         return;
     }
     button.disabled = true;
@@ -474,7 +511,7 @@ async function handleOrder(product, button) {
         const response = await fetch(`${API_BASE}/orders`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${state.token}` },
-            body: JSON.stringify({ productId: product.id }),
+            body: JSON.stringify({ productId: realId }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || data.errors?.[0]?.message || "Could not place that order.");

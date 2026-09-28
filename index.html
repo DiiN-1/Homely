@@ -406,4 +406,25 @@
 
 <div class="invisible fixed bottom-5 right-5 translate-y-2 rounded-md bg-gray-900 px-4 py-3 text-sm text-white opacity-0 transition" id="toast"></div>
 </body>
+<style>
+    html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+    body { overscroll-behavior-y: none; }
+    body.menu-open { overflow: hidden; }
+
+    /* Kill the browser's dark focus ring on the dialog box itself */
+    dialog, dialog:focus, dialog:focus-visible { outline: none; }
+
+    /* Same soft yellow focus look as the login/register inputs */
+    dialog input:focus, dialog textarea:focus, #search-input:focus { outline: none; }
+    dialog input:focus-visible, dialog textarea:focus-visible {
+        outline: 2px solid #facc15;
+        outline-offset: 0;
+        border-color: #facc15;
+    }
+    label:has(#search-input):focus-within { border-color: #facc15; box-shadow: 0 0 0 1px #facc15; }
+
+    /* Buttons: only show a ring for keyboard users, and make it yellow */
+    button:focus, a:focus { outline: none; }
+    button:focus-visible, a:focus-visible { outline: 2px solid #facc15; outline-offset: 2px; }
+</style>
 </html>
