@@ -1,4 +1,3 @@
-const API_BASE = "http://localhost:5000/api";
 const state = {
     category: "All",
     search: "",
@@ -40,10 +39,13 @@ const marketingEls = document.querySelectorAll(".marketing-only");
 const dashboardView = document.querySelector("#dashboard-view");
 const dashboardGreeting = document.querySelector("#dashboard-greeting");
 const bookingsGrid = document.querySelector("#bookings-grid");
-const ordersGrid = document.querySelector("#orders-grid");
+const cartButton = document.querySelector("#cart-button");
+const cartCount = document.querySelector("#cart-count");
+const cartDialog = document.querySelector("#cart-dialog");
+const cartItemsEl = document.querySelector("#cart-items");
+const cartSubtotalEl = document.querySelector("#cart-subtotal");
+const adminLinks = [document.querySelector("#admin-link-desktop"), document.querySelector("#admin-link-mobile")];
 
-const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;" }[character]));
-const money = (value) => `\u20a6${Number(value || 0).toLocaleString("en-NG")}`;
 const imageOrEmoji = (image) => image ? `<img class="h-full w-full object-cover" src="${escapeHtml(image)}" alt="" loading="lazy">` : "";
 
 // ---------- Auth state ----------
@@ -84,6 +86,14 @@ function updateAuthUI() {
 
     authButton.classList.toggle("hidden", signedIn);
 
+    const isAdmin = signedIn && state.user.role === "admin";
+    adminLinks.forEach((link) => { link.style.display = isAdmin ? "" : "none"; });
+
+    // The cart belongs to the signed-in user, so it only exists once logged in
+    cartButton.style.display = signedIn ? "" : "none";
+    if (!signedIn && cartDialog.open) cartDialog.close();
+    updateCartBadge();
+
     marketingEls.forEach((el) => el.classList.toggle("hidden", signedIn));
     dashboardView.classList.toggle("hidden", !signedIn);
 
@@ -91,13 +101,12 @@ function updateAuthUI() {
         userGreeting.textContent = `Hi, ${state.user.name.split(" ")[0]}`;
         dashboardGreeting.textContent = `Welcome back, ${state.user.name}`;
         loadBookings();
-        loadOrders();
     }
 }
-function requireAuth(promptMessage) {
+function requireAuth(promptMessage, returnTo) {
     if (state.token) return true;
     showToast(promptMessage);
-    sessionStorage.setItem("fixitReturnTo", window.location.pathname + window.location.hash);
+    sessionStorage.setItem("fixitReturnTo", returnTo || window.location.pathname + window.location.hash);
     window.setTimeout(() => { window.location.href = "login.html"; }, 600);
     return false;
 }
@@ -314,8 +323,8 @@ function renderProducts(products) {
         productGrid.innerHTML = '<p class="col-span-full text-sm text-gray-500">No products matched your search.</p>';
         return;
     }
-    productGrid.innerHTML = products.map((product) => `<article class="flex flex-col rounded-lg border bg-white p-4"><div class="mb-3 flex h-28 items-center justify-center rounded-md bg-gray-100 text-gray-400">${product.image ? imageOrEmoji(product.image) : '<i data-lucide="package" class="h-8 w-8"></i>'}</div><span class="text-xs font-medium text-yellow-600">${escapeHtml(product.category)}</span><h3 class="mt-1 text-sm font-semibold text-gray-900">${escapeHtml(product.name)}</h3><p class="mt-1 text-xs text-gray-500">${escapeHtml(product.description)}</p><div class="mt-auto flex items-center justify-between pt-3"><span class="text-sm font-medium text-gray-900">${money(product.price)}</span><button class="order-now-btn rounded-full bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-700" type="button" data-id="${product._id || ""}" data-name="${escapeHtml(product.name)}">Order Now</button></div></article>`).join("");
-    productGrid.querySelectorAll(".order-now-btn").forEach((button) => button.addEventListener("click", () => handleOrder(button.dataset, button)));
+    productGrid.innerHTML = products.map((product) => `<article class="flex flex-col rounded-lg border bg-white p-4"><div class="mb-3 flex h-28 items-center justify-center rounded-md bg-gray-100 text-gray-400">${product.image ? imageOrEmoji(product.image) : '<i data-lucide="package" class="h-8 w-8"></i>'}</div><span class="text-xs font-medium text-yellow-600">${escapeHtml(product.category)}</span><h3 class="mt-1 text-sm font-semibold text-gray-900">${escapeHtml(product.name)}</h3><p class="mt-1 text-xs text-gray-500">${escapeHtml(product.description)}</p><div class="mt-auto flex items-center justify-between pt-3"><span class="text-sm font-medium text-gray-900">${money(product.price)}</span><button class="add-to-cart-btn rounded-full bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-700" type="button" data-id="${product._id || ""}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-image="${escapeHtml(product.image || "")}" data-category="${escapeHtml(product.category)}">Add to Cart</button></div></article>`).join("");
+    productGrid.querySelectorAll(".add-to-cart-btn").forEach((button) => button.addEventListener("click", () => handleAddToCart(button.dataset, button)));
     refreshIcons();
 }
 
@@ -348,71 +357,70 @@ function loadProducts() {
 
 // ---------- Bookings / Orders (dashboard view, requires sign in) ----------
 
+const actionButtons = (kind, doc) => {
+    if (doc.status !== "pending_payment" && doc.status !== "payment_failed") return "";
+    return `<div class="mt-3 flex gap-2">
+        <button type="button" class="flex-1 rounded-md bg-yellow-600 py-1.5 text-xs font-medium text-white hover:bg-yellow-700 disabled:opacity-60" data-action="pay-${kind}" data-id="${doc._id}">Pay now</button>
+        <button type="button" class="rounded-md border px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60" data-action="cancel-${kind}" data-id="${doc._id}">Cancel</button>
+    </div>`;
+};
+
 function renderBookings(bookings) {
     if (!bookings.length) {
         bookingsGrid.innerHTML = '<p class="col-span-full text-sm text-gray-500">No bookings yet. Book a service to see it here.</p>';
         return;
     }
-    const statusStyles = { pending: "bg-yellow-50 text-yellow-700", confirmed: "bg-green-50 text-green-700", cancelled: "bg-red-50 text-red-700" };
     bookingsGrid.innerHTML = bookings.map((booking) => {
         const service = booking.service || {};
-        const date = booking.preferredDate ? new Date(booking.preferredDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "No date set";
-        return `<article class="rounded-lg border p-5"><div class="flex items-start justify-between"><h3 class="font-bold text-gray-900">${escapeHtml(service.name || "Service")}</h3><span class="rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusStyles[booking.status] || "bg-gray-100 text-gray-700"}">${escapeHtml(booking.status)}</span></div><p class="mt-1 text-xs text-yellow-600">${escapeHtml(service.category || "")}</p><p class="mt-2 text-sm text-gray-500">${escapeHtml(date)}</p>${booking.notes ? `<p class="mt-1 text-sm text-gray-500">${escapeHtml(booking.notes)}</p>` : ""}</article>`;
+        const name = booking.serviceName || service.name || "Service";
+        const address = booking.address ? `${booking.address.street}, ${booking.address.city}` : "";
+        return `<article class="rounded-lg border p-5"><div class="flex items-start justify-between gap-2"><h3 class="font-bold text-gray-900">${escapeHtml(name)}</h3>${statusBadge(BOOKING_STATUS, booking.status)}</div>
+            <p class="mt-1 text-xs text-yellow-600">${escapeHtml(service.category || "")}</p>
+            <p class="mt-2 text-sm text-gray-700">${escapeHtml(formatDay(booking.preferredDate))}${booking.timeSlot ? ` · ${escapeHtml(TIME_SLOTS[booking.timeSlot] || "")}` : ""}</p>
+            ${address ? `<p class="mt-1 text-sm text-gray-500">${escapeHtml(address)}</p>` : ""}
+            ${booking.notes ? `<p class="mt-1 text-sm text-gray-500">${escapeHtml(booking.notes)}</p>` : ""}
+            ${booking.bookingFee ? `<p class="mt-2 text-xs text-gray-400">Booking fee ${money(booking.bookingFee)} · ${booking.paymentStatus === "paid" ? "paid" : "not paid"}</p>` : ""}
+            ${actionButtons("booking", booking)}</article>`;
     }).join("");
 }
-
-function renderOrders(orders) {
-    if (!orders.length) {
-        ordersGrid.innerHTML = '<p class="col-span-full text-sm text-gray-500">No orders yet. Order a product to see it here.</p>';
-        return;
-    }
-    const statusStyles = { pending: "bg-yellow-50 text-yellow-700", confirmed: "bg-green-50 text-green-700", cancelled: "bg-red-50 text-red-700" };
-    ordersGrid.innerHTML = orders.map((order) => {
-        const product = order.product || {};
-        return `<article class="rounded-lg border bg-white p-4"><div class="flex items-start justify-between"><h3 class="text-sm font-semibold text-gray-900">${escapeHtml(product.name || "Product")}</h3><span class="rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusStyles[order.status] || "bg-gray-100 text-gray-700"}">${escapeHtml(order.status)}</span></div><p class="mt-1 text-xs text-yellow-600">${escapeHtml(product.category || "")}</p><p class="mt-2 text-sm text-gray-500">Qty: ${Number(order.quantity || 1)}</p></article>`;
-    }).join("");
-}
-
-async function fetchMine(path) {
-    const response = await fetch(`${API_BASE}/${path}`, { headers: { Authorization: `Bearer ${state.token}` } });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Could not load your data.");
-    return data;
-}
-
-// Sample data that always shows in the dashboard. Real bookings/orders from
-// the backend are shown first (newest on top), the samples sit underneath.
-const mockBookings = [
-    { service: { name: "Deep House Cleaning", category: "Cleaning" }, status: "confirmed", preferredDate: "2026-09-28", notes: "Please bring eco-friendly products." },
-    { service: { name: "Electrical Wiring Inspection", category: "Electrical" }, status: "pending", preferredDate: "2026-10-03", notes: "" },
-    { service: { name: "Pipe Leak Repair", category: "Plumbing" }, status: "cancelled", preferredDate: "2026-09-20", notes: "Rescheduling for next month." },
-];
-
-const mockOrders = [
-    { product: { name: "LED Bulb Pack (4pcs)", category: "Electrical" }, status: "confirmed", quantity: 2 },
-    { product: { name: "PVC Pipe Fitting Kit", category: "Plumbing" }, status: "pending", quantity: 1 },
-    { product: { name: "Tool Kit (32-piece)", category: "Maintenance" }, status: "confirmed", quantity: 1 },
-];
 
 async function loadBookings() {
-    let real = [];
     try {
-        real = await fetchMine("bookings/mine");
+        renderBookings(await api("/bookings/mine"));
     } catch (error) {
-        console.warn("Could not load saved bookings:", error.message);
+        if (error.status === 401) return handleExpiredSession();
+        bookingsGrid.innerHTML = `<p class="col-span-full text-sm text-red-600">${escapeHtml(error.message)}</p>`;
     }
-    renderBookings([...real, ...mockBookings]);
 }
 
-async function loadOrders() {
-    let real = [];
-    try {
-        real = await fetchMine("orders/mine");
-    } catch (error) {
-        console.warn("Could not load saved orders:", error.message);
-    }
-    renderOrders([...real, ...mockOrders]);
+// Token expired or user deleted: drop the stale session instead of showing a broken dashboard
+function handleExpiredSession() {
+    setSignedOut();
+    showToast("Your session expired. Please sign in again.");
 }
+
+// Pay / cancel buttons on booking cards
+document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const [verb] = button.dataset.action.split("-");
+    if (verb === "cancel" && !window.confirm("Cancel this booking?")) return;
+
+    button.disabled = true;
+    try {
+        if (verb === "pay") {
+            const result = await api(`/bookings/${button.dataset.id}/pay`, { method: "POST" });
+            window.location.href = result.authorizationUrl;
+            return;
+        }
+        await api(`/bookings/${button.dataset.id}/cancel`, { method: "POST" });
+        showToast("Booking cancelled.");
+        loadBookings();
+    } catch (error) {
+        showToast(error.message);
+        button.disabled = false;
+    }
+});
 
 // ---------- Toast ----------
 
@@ -440,8 +448,17 @@ document.querySelector("#signout-mobile").addEventListener("click", () => {
     window.location.hash = "#top";
 });
 makeDismissible(bookingDialog);
+makeDismissible(cartDialog);
 
 // ---------- Booking modal (requires sign in) ----------
+
+const bookingStateSelect = document.querySelector("#booking-state");
+bookingStateSelect.innerHTML = stateOptions("Rivers");
+let bookingFee = 2000;
+api("/config", { authed: false }).then((config) => {
+    bookingFee = config.bookingFee;
+    document.querySelector("#booking-fee-label").textContent = money(bookingFee);
+}).catch(() => { /* keep default label */ });
 
 async function openBookingDialog(service) {
     if (!requireAuth("Sign in to book this service.")) return;
@@ -455,8 +472,11 @@ async function openBookingDialog(service) {
     document.querySelector("#booking-service-meta").innerHTML = `<span>${money(service.priceMin)} - ${money(service.priceMax)}</span><span class="flex items-center gap-1"><i data-lucide="star" class="h-3.5 w-3.5 fill-current text-yellow-500"></i>${Number(service.rating).toFixed(1)}</span>`;
     document.querySelector("#booking-service-description").textContent = service.description;
     bookingForm.reset();
+    bookingForm.elements.date.min = new Date().toISOString().slice(0, 10);
+    if (state.user?.name) bookingForm.elements.notes.placeholder = "Anything they should know";
     bookingMessage.textContent = "";
     bookingMessage.className = "mt-2 min-h-4 text-xs";
+    document.querySelector("#booking-submit").disabled = false;
     refreshIcons();
     bookingDialog.showModal();
 }
@@ -466,64 +486,109 @@ document.querySelector("#cancel-booking").addEventListener("click", () => bookin
 
 bookingForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submitButton = document.querySelector("#booking-submit");
     if (!OBJECT_ID_RE.test(activeBookingService || "")) {
         bookingMessage.className = "mt-2 min-h-4 text-xs text-red-600";
         bookingMessage.textContent = "Couldn't identify this service. Close this and try again.";
         return;
     }
-    const formData = new FormData(bookingForm);
-    const payload = { serviceId: activeBookingService, preferredDate: formData.get("date") };
-    if (formData.get("notes")) payload.notes = formData.get("notes");
+    const data = Object.fromEntries(new FormData(bookingForm));
+    if (!data.date || !data.phone.trim() || !data.street.trim() || !data.city.trim()) {
+        bookingMessage.className = "mt-2 min-h-4 text-xs text-red-600";
+        bookingMessage.textContent = "Please fill in the date, phone number, street address and city.";
+        return;
+    }
+    const payload = {
+        serviceId: activeBookingService,
+        preferredDate: data.date,
+        timeSlot: data.timeSlot,
+        phone: data.phone,
+        address: { street: data.street, city: data.city, state: data.state, landmark: data.landmark },
+    };
+    if (data.notes) payload.notes = data.notes;
 
+    submitButton.disabled = true;
     bookingMessage.className = "mt-2 min-h-4 text-xs text-gray-500";
-    bookingMessage.textContent = "Sending your request...";
+    bookingMessage.textContent = "Setting up your payment...";
     try {
-        const response = await fetch(`${API_BASE}/bookings`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${state.token}` },
-            body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || data.errors?.[0]?.message || "Could not send that booking.");
+        const result = await api("/bookings", { method: "POST", body: payload });
         bookingMessage.className = "mt-2 min-h-4 text-xs text-green-600";
-        bookingMessage.textContent = "Booked! We'll be in touch to confirm.";
-        loadBookings();
-        window.setTimeout(() => { bookingDialog.close(); showToast("Booking request sent."); }, 1100);
+        bookingMessage.textContent = "Redirecting to Paystack...";
+        window.location.href = result.authorizationUrl;
     } catch (error) {
+        if (error.status === 401) { bookingDialog.close(); return handleExpiredSession(); }
         bookingMessage.className = "mt-2 min-h-4 text-xs text-red-600";
         bookingMessage.textContent = error.message;
+        submitButton.disabled = false;
     }
 });
 
-// ---------- Order flow (requires sign in, simpler than booking) ----------
+// ---------- Cart ----------
 
-async function handleOrder(product, button) {
-    if (!requireAuth("Sign in to order this product.")) return;
+function updateCartBadge() {
+    const count = cart.count();
+    cartCount.textContent = count;
+    cartCount.classList.toggle("hidden", count === 0);
+}
+
+function renderCart() {
+    const items = cart.items();
+    document.querySelector("#cart-checkout").disabled = items.length === 0;
+    cartSubtotalEl.textContent = money(cart.subtotal());
+    if (!items.length) {
+        cartItemsEl.innerHTML = '<div class="py-16 text-center text-sm text-gray-500"><i data-lucide="shopping-cart" class="mx-auto mb-3 h-8 w-8 text-gray-300"></i>Your cart is empty.</div>';
+        refreshIcons();
+        return;
+    }
+    cartItemsEl.innerHTML = `<ul class="divide-y">${items.map((item) => `
+        <li class="flex items-start gap-3 py-4">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100 text-gray-400">${item.image ? imageOrEmoji(item.image) : '<i data-lucide="package" class="h-5 w-5"></i>'}</div>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-900">${escapeHtml(item.name)}</p>
+                <p class="text-xs text-gray-500">${money(item.price)}</p>
+                <div class="mt-2 flex items-center gap-2">
+                    <button type="button" class="h-6 w-6 rounded border text-sm hover:bg-gray-50" data-cart-qty="-1" data-id="${escapeHtml(item.id)}" aria-label="Decrease quantity">−</button>
+                    <span class="w-5 text-center text-sm">${item.quantity}</span>
+                    <button type="button" class="h-6 w-6 rounded border text-sm hover:bg-gray-50" data-cart-qty="1" data-id="${escapeHtml(item.id)}" aria-label="Increase quantity">+</button>
+                    <button type="button" class="ml-2 text-xs text-gray-400 hover:text-red-600" data-cart-remove="${escapeHtml(item.id)}">Remove</button>
+                </div>
+            </div>
+            <span class="text-sm font-medium text-gray-900">${money(item.price * item.quantity)}</span>
+        </li>`).join("")}</ul>`;
+    refreshIcons();
+}
+
+async function handleAddToCart(product, button) {
+    if (!requireAuth("Sign in to add items to your cart.")) return;
     const realId = await resolveRealId("products", product);
     if (!realId) {
         showToast("This product isn't in the database yet. Run `npm run seed` in /backend, then refresh.");
         return;
     }
-    button.disabled = true;
-    const originalLabel = button.textContent;
-    button.textContent = "Ordering...";
-    try {
-        const response = await fetch(`${API_BASE}/orders`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${state.token}` },
-            body: JSON.stringify({ productId: realId }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || data.errors?.[0]?.message || "Could not place that order.");
-        showToast(`Order placed for ${product.name}.`);
-        loadOrders();
-    } catch (error) {
-        showToast(error.message);
-    } finally {
-        button.disabled = false;
-        button.textContent = originalLabel;
-    }
+    cart.add({ id: realId, name: product.name, price: Number(product.price), image: product.image || "", category: product.category });
+    showToast(`Added ${product.name} to your cart.`);
 }
+
+cartButton.addEventListener("click", () => { renderCart(); cartDialog.showModal(); });
+document.querySelector("#close-cart").addEventListener("click", () => cartDialog.close());
+cartItemsEl.addEventListener("click", (event) => {
+    const qtyButton = event.target.closest("[data-cart-qty]");
+    const removeButton = event.target.closest("[data-cart-remove]");
+    if (qtyButton) {
+        const item = cart.items().find((entry) => entry.id === qtyButton.dataset.id);
+        if (item) cart.setQuantity(item.id, item.quantity + Number(qtyButton.dataset.cartQty));
+    } else if (removeButton) {
+        cart.remove(removeButton.dataset.cartRemove);
+    }
+});
+document.querySelector("#cart-checkout").addEventListener("click", () => {
+    if (!cart.items().length) return;
+    // Guests can fill a cart freely; they only need an account to check out
+    if (!requireAuth("Sign in to check out.", "checkout.html")) return;
+    window.location.href = "checkout.html";
+});
+window.addEventListener("cart-changed", () => { updateCartBadge(); if (cartDialog.open) renderCart(); });
+window.addEventListener("storage", (event) => { if (event.key && event.key.startsWith("homelyCart")) { updateCartBadge(); if (cartDialog.open) renderCart(); } });
 
 // ---------- Search (filters both services and products at once) ----------
 
@@ -540,6 +605,7 @@ searchInput.addEventListener("input", () => {
 // ---------- Init ----------
 
 updateAuthUI();
+updateCartBadge();
 renderServiceFilters();
 loadServices();
 loadProducts();

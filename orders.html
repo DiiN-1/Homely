@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My orders | Homely</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] } } } };
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>button:focus-visible, a:focus-visible { outline: 2px solid #facc15; outline-offset: 2px; }</style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-800 antialiased">
+<header class="border-b bg-white">
+<div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+<a class="flex items-center gap-2 text-lg font-bold text-gray-900" href="index.html"><i data-lucide="wrench" class="h-5 w-5 text-yellow-600"></i>Homely</a>
+<nav class="flex items-center gap-6 text-sm font-medium text-gray-600">
+<a class="hover:text-yellow-600" href="index.html#shop">Shop</a>
+<a class="hover:text-yellow-600" href="index.html#bookings">Bookings</a>
+<a class="text-yellow-700" href="orders.html" aria-current="page">Orders</a>
+</nav>
+</div>
+</header>
+
+<main class="mx-auto max-w-4xl px-5 py-10">
+<h1 class="text-3xl font-bold text-gray-900">My orders</h1>
+<p class="mt-1 text-sm text-gray-500">Track deliveries, finish payments and view receipts.</p>
+
+<div class="mt-6 flex flex-wrap gap-2" id="filters" role="tablist"></div>
+<p class="mt-3 min-h-5 text-sm text-red-600" id="orders-message" role="alert"></p>
+<div class="mt-2 space-y-4" id="orders-list"><p class="text-sm text-gray-500">Loading your orders...</p></div>
+</main>
+
+<script src="shared.js"></script>
+<script src="orders.js"></script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | Homely</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] } } } };
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #facc15; outline-offset: 0; border-color: #facc15; }
+        button:focus-visible, a:focus-visible { outline: 2px solid #facc15; outline-offset: 2px; }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-800 antialiased">
+
+<header class="border-b bg-white">
+<div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+<a class="flex items-center gap-2 text-lg font-bold text-gray-900" href="index.html"><i data-lucide="wrench" class="h-5 w-5 text-yellow-600"></i>Homely</a>
+<a class="text-sm font-medium text-gray-600 hover:text-yellow-600" href="index.html#shop">Continue shopping</a>
+</div>
+</header>
+
+<main class="mx-auto max-w-6xl px-5 py-10">
+<h1 class="text-3xl font-bold text-gray-900">Checkout</h1>
+<p class="mt-1 text-sm text-gray-500">Tell us where to deliver, then pay securely with Paystack.</p>
+
+<div class="mt-10 hidden rounded-lg border bg-white p-10 text-center" id="empty-cart">
+<i data-lucide="shopping-cart" class="mx-auto h-8 w-8 text-gray-300"></i>
+<p class="mt-3 font-semibold text-gray-900">Your cart is empty</p>
+<p class="mt-1 text-sm text-gray-500">Add a few products and come back here to check out.</p>
+<a class="mt-5 inline-block rounded-md bg-yellow-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-yellow-700" href="index.html#shop">Browse products</a>
+</div>
+
+<div class="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]" id="checkout-grid">
+
+<form class="rounded-lg border bg-white p-6" id="checkout-form" novalidate>
+<h2 class="text-lg font-bold text-gray-900">Delivery details</h2>
+<div class="mt-5 grid gap-4 sm:grid-cols-2">
+<label class="block text-sm font-medium text-gray-700">Full name
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="fullName" type="text" autocomplete="name" required>
+</label>
+<label class="block text-sm font-medium text-gray-700">Phone number
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="phone" type="tel" autocomplete="tel" placeholder="0801 234 5678" required>
+</label>
+<label class="block text-sm font-medium text-gray-700 sm:col-span-2">Street address
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="street" type="text" autocomplete="street-address" placeholder="House number and street" required>
+</label>
+<label class="block text-sm font-medium text-gray-700">City / Area
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="city" type="text" autocomplete="address-level2" placeholder="e.g. Port Harcourt" required>
+</label>
+<label class="block text-sm font-medium text-gray-700">State
+<select class="mt-1 w-full rounded-md border bg-white px-3 py-2 text-sm" name="state" id="state-select" required>
+   <option value="" disabled selected>Select your state</option>
+    <option value="Abia">Abia</option>
+<option value="Adamawa">Adamawa</option>
+<option value="Akwa Ibom">Akwa Ibom</option>
+<option value="Anambra">Anambra</option>
+<option value="Bauchi">Bauchi</option>
+<option value="Bayelsa">Bayelsa</option>
+<option value="Benue">Benue</option>
+<option value="Borno">Borno</option>
+<option value="Cross River">Cross River</option>
+<option value="Delta">Delta</option>
+<option value="Ebonyi">Ebonyi</option>
+<option value="Edo">Edo</option>
+<option value="Ekiti">Ekiti</option>
+<option value="Enugu">Enugu</option>
+<option value="Gombe">Gombe</option>
+<option value="Imo">Imo</option>
+<option value="Jigawa">Jigawa</option>
+<option value="Kaduna">Kaduna</option>
+<option value="Kano">Kano</option>
+<option value="Katsina">Katsina</option>
+<option value="Kebbi">Kebbi</option>
+<option value="Kogi">Kogi</option>
+<option value="Kwara">Kwara</option>
+<option value="Lagos">Lagos</option>
+<option value="Nasarawa">Nasarawa</option>
+<option value="Niger">Niger</option>
+<option value="Ogun">Ogun</option>
+<option value="Ondo">Ondo</option>
+<option value="Osun">Osun</option>
+<option value="Oyo">Oyo</option>
+<option value="Plateau">Plateau</option>
+<option value="Rivers">Rivers</option>
+<option value="Sokoto">Sokoto</option>
+<option value="Taraba">Taraba</option>
+<option value="Yobe">Yobe</option>
+<option value="Zamfara">Zamfara</option>
+</select>
+</label>
+<label class="block text-sm font-medium text-gray-700 sm:col-span-2">Nearest landmark <span class="font-normal text-gray-400">(helps the rider find you)</span>
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="landmark" type="text" placeholder="e.g. Opposite the filling station">
+</label>
+<label class="block text-sm font-medium text-gray-700 sm:col-span-2">Order note <span class="font-normal text-gray-400">(optional)</span>
+<textarea class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="notes" rows="2" placeholder="Anything we should know about this delivery"></textarea>
+</label>
+</div>
+<p class="mt-4 min-h-5 text-sm text-red-600" id="checkout-message" role="alert"></p>
+</form>
+
+<aside class="h-fit rounded-lg border bg-white p-6 lg:sticky lg:top-6">
+<h2 class="text-lg font-bold text-gray-900">Order summary</h2>
+<ul class="mt-4 divide-y" id="summary-items"></ul>
+<dl class="mt-4 space-y-2 border-t pt-4 text-sm">
+<div class="flex justify-between"><dt class="text-gray-500">Subtotal</dt><dd class="font-medium text-gray-900" id="sum-subtotal"></dd></div>
+<div class="flex justify-between"><dt class="text-gray-500">Delivery</dt><dd class="font-medium text-gray-900" id="sum-delivery"></dd></div>
+<div class="flex justify-between border-t pt-3 text-base"><dt class="font-bold text-gray-900">Total</dt><dd class="font-bold text-gray-900" id="sum-total"></dd></div>
+</dl>
+<p class="mt-2 text-xs text-gray-500" id="delivery-hint"></p>
+<button class="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-yellow-600 py-3 text-sm font-semibold text-white hover:bg-yellow-700 disabled:opacity-60" type="submit" form="checkout-form" id="pay-button">
+<i data-lucide="lock" class="h-4 w-4"></i><span id="pay-label">Pay with Paystack</span>
+</button>
+<p class="mt-3 text-center text-xs text-gray-400">Card, bank transfer and USSD are handled on Paystack's secure page. We never see your card details.</p>
+</aside>
+</div>
+</main>
+
+<script src="shared.js"></script>
+<script src="checkout.js"></script>
+</body>
+</html>

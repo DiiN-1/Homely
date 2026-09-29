@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order details | Homely</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] } } } };
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>button:focus-visible, a:focus-visible { outline: 2px solid #facc15; outline-offset: 2px; }
+    @media print { header, #actions, #back-link { display: none !important; } body { background: #fff; } }</style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-800 antialiased">
+<header class="border-b bg-white">
+<div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+<a class="flex items-center gap-2 text-lg font-bold text-gray-900" href="index.html"><i data-lucide="wrench" class="h-5 w-5 text-yellow-600"></i>Homely</a>
+<a class="text-sm font-medium text-gray-600 hover:text-yellow-600" href="orders.html" id="back-link">← All orders</a>
+</div>
+</header>
+
+<main class="mx-auto max-w-4xl px-5 py-10" id="content">
+<p class="text-sm text-gray-500">Loading your order...</p>
+</main>
+
+<script src="shared.js"></script>
+<script src="order.js"></script>
+</body>
+</html>

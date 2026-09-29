@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirming payment | Homely</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] } } } };
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>button:focus-visible, a:focus-visible { outline: 2px solid #facc15; outline-offset: 2px; }</style>
+</head>
+<body class="flex min-h-screen flex-col bg-gray-50 text-gray-800 antialiased">
+<header class="border-b bg-white">
+<div class="mx-auto flex max-w-6xl items-center px-5 py-4">
+<a class="flex items-center gap-2 text-lg font-bold text-gray-900" href="index.html"><i data-lucide="wrench" class="h-5 w-5 text-yellow-600"></i>Homely</a>
+</div>
+</header>
+
+<main class="flex flex-1 items-center justify-center px-5 py-12">
+<div class="w-full max-w-md rounded-lg border bg-white p-8 text-center shadow-sm" id="result" aria-live="polite">
+<div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-yellow-100 border-t-yellow-600"></div>
+<p class="mt-4 font-semibold text-gray-900">Confirming your payment...</p>
+<p class="mt-1 text-sm text-gray-500">Please don't close this page.</p>
+</div>
+</main>
+
+<script src="shared.js"></script>
+<script>
+// Paystack sends the customer back here with ?reference=...; we ask our server to verify it with Paystack.
+const params = new URLSearchParams(window.location.search);
+const reference = params.get("reference") || params.get("trxref");
+const kind = params.get("type") === "booking" ? "booking" : "order";
+const box = document.querySelector("#result");
+
+const icon = (name, colour) => `<span class="mx-auto flex h-12 w-12 items-center justify-center rounded-full ${colour}"><i data-lucide="${name}" class="h-6 w-6"></i></span>`;
+const linkBtn = (href, text, primary) => `<a class="rounded-md px-5 py-2.5 text-sm font-medium ${primary ? "bg-yellow-600 text-white hover:bg-yellow-700" : "border text-gray-700 hover:bg-gray-50"}" href="${href}">${text}</a>`;
+
+function show(html) { box.innerHTML = html; window.lucide?.createIcons(); }
+
+function showSuccess(doc) {
+    if (kind === "order") {
+        show(`${icon("check", "bg-green-50 text-green-600")}
+            <h1 class="mt-4 text-xl font-bold text-gray-900">Payment received</h1>
+            <p class="mt-1 text-sm text-gray-500">Thank you! Order <strong>${escapeHtml(doc.orderNumber)}</strong> is confirmed and we're getting it ready.</p>
+            <p class="mt-4 text-2xl font-bold text-gray-900">${money(doc.total)}</p>
+            <p class="mt-1 text-xs text-gray-400">Ref: ${escapeHtml(reference)}</p>
+            <div class="mt-6 flex flex-wrap justify-center gap-3">${linkBtn(`order.html?id=${doc._id}`, "Track this order", true)}${linkBtn("orders.html", "All my orders")}</div>`);
+    } else {
+        show(`${icon("check", "bg-green-50 text-green-600")}
+            <h1 class="mt-4 text-xl font-bold text-gray-900">Booking confirmed</h1>
+            <p class="mt-1 text-sm text-gray-500">Your booking fee for <strong>${escapeHtml(doc.serviceName || "your service")}</strong> is paid. We'll see you on ${escapeHtml(formatDay(doc.preferredDate))}, ${escapeHtml((TIME_SLOTS[doc.timeSlot] || "").split(" ")[0].toLowerCase())}.</p>
+            <p class="mt-4 text-2xl font-bold text-gray-900">${money(doc.bookingFee)}</p>
+            <p class="mt-1 text-xs text-gray-400">Ref: ${escapeHtml(reference)}</p>
+            <div class="mt-6 flex flex-wrap justify-center gap-3">${linkBtn("index.html#bookings", "View my bookings", true)}${linkBtn("index.html", "Back to home")}</div>`);
+    }
+}
+
+function showNotCompleted(doc, text) {
+    show(`${icon("x", "bg-red-50 text-red-600")}
+        <h1 class="mt-4 text-xl font-bold text-gray-900">Payment not completed</h1>
+        <p class="mt-1 text-sm text-gray-500">${escapeHtml(text)}</p>
+        <div class="mt-6 flex flex-wrap justify-center gap-3">
+            <button class="rounded-md bg-yellow-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-yellow-700" id="retry" type="button">Try payment again</button>
+            ${linkBtn(kind === "order" ? "orders.html" : "index.html#bookings", "Maybe later")}
+        </div><p class="mt-3 min-h-4 text-xs text-red-600" id="retry-error"></p>`);
+    document.querySelector("#retry").addEventListener("click", async (event) => {
+        event.target.disabled = true;
+        try {
+            const result = await api(`/${kind === "order" ? "orders" : "bookings"}/${doc._id}/pay`, { method: "POST" });
+            window.location.href = result.authorizationUrl;
+        } catch (error) {
+            document.querySelector("#retry-error").textContent = error.message;
+            event.target.disabled = false;
+        }
+    });
+}
+
+(async () => {
+    if (!getToken()) return goToLogin(window.location.pathname + window.location.search);
+    if (!reference) {
+        return show(`<p class="font-semibold text-gray-900">No payment reference found.</p><a class="mt-4 inline-block text-sm text-yellow-700 underline" href="index.html">Back to home</a>`);
+    }
+    try {
+        const result = await api(`/${kind === "order" ? "orders" : "bookings"}/verify/${encodeURIComponent(reference)}`);
+        const doc = result[kind];
+        if (doc.paymentStatus === "paid") showSuccess(doc);
+        else if (result.paymentStatus === "failed") showNotCompleted(doc, "Your bank or card declined the payment. You haven't been charged.");
+        else showNotCompleted(doc, "It looks like the payment wasn't finished. If you were charged, it will show up automatically within a few minutes.");
+    } catch (error) {
+        if (error.status === 401) { clearSession(); return goToLogin(window.location.pathname + window.location.search); }
+        show(`${icon("alert-triangle", "bg-yellow-50 text-yellow-600")}
+            <h1 class="mt-4 text-xl font-bold text-gray-900">We couldn't confirm that yet</h1>
+            <p class="mt-1 text-sm text-gray-500">${escapeHtml(error.message)}</p>
+            <p class="mt-1 text-xs text-gray-400">Ref: ${escapeHtml(reference)}</p>
+            <div class="mt-6 flex justify-center gap-3"><button class="rounded-md bg-yellow-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-yellow-700" onclick="location.reload()">Check again</button>${linkBtn("index.html", "Back to home")}</div>`);
+    }
+})();
+</script>
+</body>
+</html>

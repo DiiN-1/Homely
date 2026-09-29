@@ -26,6 +26,7 @@
         body { overscroll-behavior-y: none; }
         body.menu-open { overflow: hidden; }
     </style>
+    <script src="shared.js" defer></script>
     <script src="app.js" defer></script>
 </head>
 <body class="bg-white text-gray-800 antialiased">
@@ -44,7 +45,8 @@
 <nav class="hidden gap-8 text-sm font-medium text-gray-600 md:flex" id="nav-auth">
 <a class="hover:text-yellow-600" href="#bookings">Bookings</a>
 <a class="hover:text-yellow-600" href="#services">Services</a>
-<a class="hover:text-yellow-600" href="#orders">Orders</a>
+<a class="hover:text-yellow-600" href="orders.html">Orders</a>
+<a class="hover:text-yellow-600" style="display:none" id="admin-link-desktop" href="admin.html">Admin</a>
 <button class="hover:text-yellow-600" id="signout-desktop" type="button">Sign out</button>
 </nav>
 
@@ -53,6 +55,10 @@
 <span class="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-50 text-yellow-600"><i data-lucide="user-round" class="h-4 w-4"></i></span>
 <span class="text-sm font-medium text-gray-700" id="user-greeting"></span>
 </div>
+<button class="relative flex h-10 w-10 items-center justify-center rounded-md border text-gray-700 transition-colors hover:bg-gray-50" style="display:none" id="cart-button" type="button" aria-label="Open cart">
+<i data-lucide="shopping-cart" class="h-5 w-5"></i>
+<span class="absolute -right-1.5 -top-1.5 hidden min-w-5 rounded-full bg-yellow-600 px-1 text-center text-xs font-semibold leading-5 text-white" id="cart-count">0</span>
+</button>
 <button class="rounded-md bg-yellow-600 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-700" id="auth-button" type="button">Sign in</button>
 <button class="ml-1 flex h-10 w-10 items-center justify-center rounded-md border text-gray-700 transition-colors active:bg-gray-100 md:hidden" id="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
 <i data-lucide="menu" class="h-5 w-5" id="menu-toggle-icon"></i>
@@ -76,7 +82,8 @@
 <div class="hidden" id="mobile-nav-auth">
 <a class="mobile-link flex items-center gap-3 rounded-lg px-3 py-3 transition-colors active:bg-yellow-50 active:text-yellow-700" href="#bookings"><i data-lucide="calendar-check" class="h-4.5 w-4.5 text-gray-400"></i>Bookings</a>
 <a class="mobile-link flex items-center gap-3 rounded-lg px-3 py-3 transition-colors active:bg-yellow-50 active:text-yellow-700" href="#services"><i data-lucide="wrench" class="h-4.5 w-4.5 text-gray-400"></i>Services</a>
-<a class="mobile-link flex items-center gap-3 rounded-lg px-3 py-3 transition-colors active:bg-yellow-50 active:text-yellow-700" href="#orders"><i data-lucide="package" class="h-4.5 w-4.5 text-gray-400"></i>Orders</a>
+<a class="mobile-link flex items-center gap-3 rounded-lg px-3 py-3 transition-colors active:bg-yellow-50 active:text-yellow-700" href="orders.html"><i data-lucide="package" class="h-4.5 w-4.5 text-gray-400"></i>Orders</a>
+<a class="mobile-link flex items-center gap-3 rounded-lg px-3 py-3 transition-colors active:bg-yellow-50 active:text-yellow-700" style="display:none" id="admin-link-mobile" href="admin.html"><i data-lucide="shield-check" class="h-4.5 w-4.5 text-gray-400"></i>Admin</a>
 <button class="mobile-link flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors active:bg-yellow-50 active:text-yellow-700" id="signout-mobile" type="button"><i data-lucide="log-out" class="h-4.5 w-4.5 text-gray-400"></i>Sign out</button>
 </div>
 </div>
@@ -226,7 +233,7 @@
 <div class="hidden" id="dashboard-view">
 <section class="mx-auto max-w-7xl px-5 pb-4 pt-12">
 <h1 class="text-3xl font-bold text-gray-900" id="dashboard-greeting">Welcome back</h1>
-<p class="mt-1 text-sm text-gray-500">Track your bookings and orders in one place.</p>
+<p class="mt-1 text-sm text-gray-500">Track your bookings here. Your orders live on the <a class="font-medium text-yellow-700 hover:underline" href="orders.html">Orders page</a>.</p>
 </section>
 
 <section class="mx-auto max-w-7xl px-5 pb-16 sm:pb-20" id="bookings">
@@ -236,14 +243,6 @@
 </div>
 </section>
 
-<section class="bg-gray-50 px-5 py-16 sm:py-20" id="orders">
-<div class="mx-auto max-w-7xl">
-<h2 class="text-2xl font-bold text-gray-900">Your orders</h2>
-<div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4" id="orders-grid">
-<p class="col-span-full text-sm text-gray-500">Loading your orders...</p>
-</div>
-</div>
-</section>
 </div>
 </main>
 <footer class="border-t border-gray-800 bg-gray-950 px-5 py-16 text-gray-300" id="contact">
@@ -384,24 +383,68 @@
 </form>
 </dialog>
 
-<dialog class="w-[calc(100%-32px)] max-w-md rounded-lg border-0 p-6 shadow-xl backdrop:bg-black/40" id="booking-dialog">
+<dialog class="max-h-[92vh] w-[calc(100%-32px)] max-w-md overflow-y-auto rounded-lg border-0 p-6 shadow-xl backdrop:bg-black/40" id="booking-dialog">
 <button class="absolute right-4 top-4 text-gray-400 hover:text-gray-600" id="close-booking" type="button" aria-label="Close"><i data-lucide="x" class="h-5 w-5"></i></button>
 <h2 class="text-xl font-bold text-gray-900" id="booking-service-name">Service</h2>
 <div class="mt-1 flex items-center gap-3 text-sm font-medium text-gray-700" id="booking-service-meta"></div>
 <p class="mt-2 text-sm text-gray-500" id="booking-service-description"></p>
-<form class="mt-4" id="booking-form">
+<form class="mt-4" id="booking-form" novalidate>
+<div class="grid grid-cols-2 gap-3">
 <label class="mb-3 block text-sm font-medium text-gray-700">Preferred date
 <input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="date" type="date" required>
 </label>
-<label class="mb-3 block text-sm font-medium text-gray-700">Notes <span class="font-normal text-gray-400">(optional)</span>
-<textarea class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="notes" rows="3" placeholder="Anything they should know"></textarea>
+<label class="mb-3 block text-sm font-medium text-gray-700">Time
+<select class="mt-1 w-full rounded-md border bg-white px-3 py-2 text-sm" name="timeSlot" required>
+<option value="morning">Morning (8am – 12pm)</option>
+<option value="afternoon">Afternoon (12pm – 4pm)</option>
+<option value="evening">Evening (4pm – 7pm)</option>
+</select>
 </label>
+</div>
+<label class="mb-3 block text-sm font-medium text-gray-700">Phone number
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="phone" type="tel" autocomplete="tel" placeholder="0801 234 5678" required>
+</label>
+<label class="mb-3 block text-sm font-medium text-gray-700">Street address
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="street" type="text" autocomplete="street-address" placeholder="Where should we come?" required>
+</label>
+<div class="grid grid-cols-2 gap-3">
+<label class="mb-3 block text-sm font-medium text-gray-700">City / Area
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="city" type="text" placeholder="e.g. Port Harcourt" required>
+</label>
+<label class="mb-3 block text-sm font-medium text-gray-700">State
+<select class="mt-1 w-full rounded-md border bg-white px-3 py-2 text-sm" name="state" id="booking-state" required></select>
+</label>
+</div>
+<label class="mb-3 block text-sm font-medium text-gray-700">Nearest landmark <span class="font-normal text-gray-400">(optional)</span>
+<input class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="landmark" type="text">
+</label>
+<label class="mb-3 block text-sm font-medium text-gray-700">Notes <span class="font-normal text-gray-400">(optional)</span>
+<textarea class="mt-1 w-full rounded-md border px-3 py-2 text-sm" name="notes" rows="2" placeholder="Anything they should know"></textarea>
+</label>
+<div class="mb-3 rounded-md bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
+A <strong id="booking-fee-label">₦2,000</strong> booking fee is paid now via Paystack to secure your slot. The final price for the job is agreed on-site within the range above.
+</div>
 <div class="mt-2 flex gap-2">
-<button class="flex-1 rounded-md bg-yellow-600 py-2.5 text-sm font-medium text-white hover:bg-yellow-700" type="submit" id="booking-submit">Confirm booking</button>
+<button class="flex-1 rounded-md bg-yellow-600 py-2.5 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-60" type="submit" id="booking-submit">Continue to payment</button>
 <button class="rounded-md border px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50" id="cancel-booking" type="button">Cancel</button>
 </div>
 </form>
-<p class="mt-2 min-h-4 text-xs" id="booking-message"></p>
+<p class="mt-2 min-h-4 text-xs" id="booking-message" role="alert"></p>
+</dialog>
+
+<dialog class="ml-auto mr-0 h-full max-h-full w-full max-w-md rounded-none border-0 p-0 shadow-xl backdrop:bg-black/40 sm:rounded-l-lg" id="cart-dialog">
+<div class="flex h-full flex-col">
+<div class="flex items-center justify-between border-b px-5 py-4">
+<h2 class="text-lg font-bold text-gray-900">Your cart</h2>
+<button class="text-gray-400 hover:text-gray-600" id="close-cart" type="button" aria-label="Close cart"><i data-lucide="x" class="h-5 w-5"></i></button>
+</div>
+<div class="flex-1 overflow-y-auto px-5" id="cart-items"></div>
+<div class="border-t px-5 py-4">
+<div class="flex items-center justify-between text-sm"><span class="text-gray-500">Subtotal</span><span class="text-base font-bold text-gray-900" id="cart-subtotal">₦0</span></div>
+<p class="mt-1 text-xs text-gray-400">Delivery is calculated at checkout.</p>
+<button class="mt-4 w-full rounded-md bg-yellow-600 py-3 text-sm font-semibold text-white hover:bg-yellow-700 disabled:opacity-50" id="cart-checkout" type="button">Checkout</button>
+</div>
+</div>
 </dialog>
 
 <div class="invisible fixed bottom-5 right-5 translate-y-2 rounded-md bg-gray-900 px-4 py-3 text-sm text-white opacity-0 transition" id="toast"></div>
