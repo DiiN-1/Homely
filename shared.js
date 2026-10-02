@@ -1,4 +1,4 @@
-// Helpers shared by every page (index, checkout, order, payment-callback, admin).
+// Helpers shared by every page (index, checkout, order, payment-callback).
 const API_BASE = "http://localhost:5000/api";
 
 const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;" }[character]));

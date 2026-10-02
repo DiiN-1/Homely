@@ -44,8 +44,6 @@ const cartCount = document.querySelector("#cart-count");
 const cartDialog = document.querySelector("#cart-dialog");
 const cartItemsEl = document.querySelector("#cart-items");
 const cartSubtotalEl = document.querySelector("#cart-subtotal");
-const adminLinks = [document.querySelector("#admin-link-desktop"), document.querySelector("#admin-link-mobile")];
-
 const imageOrEmoji = (image) => image ? `<img class="h-full w-full object-cover" src="${escapeHtml(image)}" alt="" loading="lazy">` : "";
 
 // ---------- Auth state ----------
@@ -85,9 +83,6 @@ function updateAuthUI() {
     navAuthMobile.classList.toggle("hidden", !signedIn);
 
     authButton.classList.toggle("hidden", signedIn);
-
-    const isAdmin = signedIn && state.user.role === "admin";
-    adminLinks.forEach((link) => { link.style.display = isAdmin ? "" : "none"; });
 
     // The cart belongs to the signed-in user, so it only exists once logged in
     cartButton.style.display = signedIn ? "" : "none";

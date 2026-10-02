@@ -25,10 +25,4 @@ async function protect(req, res, next) {
   }
 }
 
-// Use after `protect`
-function adminOnly(req, res, next) {
-  if (req.user && req.user.role === "admin") return next();
-  return res.status(403).json({ message: "Admins only" });
-}
-
-module.exports = { protect, adminOnly };
+module.exports = { protect };

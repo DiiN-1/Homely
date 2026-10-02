@@ -1,4 +1,4 @@
-// Allowed status changes an admin can make. Anything not listed here is rejected.
+// Allowed statuses and transitions for bookings and orders.
 
 const ORDER_STATUSES = [
   "pending_payment",

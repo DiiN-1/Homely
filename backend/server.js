@@ -10,7 +10,6 @@ const serviceRoutes = require("./routes/serviceRoutes");
 const productRoutes = require("./routes/productRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const orderRoutes = require("./routes/orderRoutes");
-const adminRoutes = require("./routes/adminRoutes");
 const { paystackWebhook } = require("./routes/paymentRoutes");
 const { BOOKING_FEE, DELIVERY } = require("./config/pricing");
 
@@ -52,7 +51,6 @@ app.use("/api/services", serviceRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/admin", adminRoutes);
 
 // Public pricing rules so the frontend can show fees (the server still recalculates everything)
 app.get("/api/config", (req, res) =>
